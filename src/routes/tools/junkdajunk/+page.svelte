@@ -46,33 +46,51 @@
 	onDestroy(() => abortController.abort());
 
 	async function junkDaJunk(main: string, puppets: string) {
-		downloadable = false;
-		stoppable = true;
-		stopped = false;
-		progress = '';
-		let puppetsList = puppets.split('\n');
-		const whiteList = regionalwhitelist ? regionalwhitelist.split('\n') : [];
-		if (whiteList.length > 0) {
-			progress += `<p>Whitelisting regions: ${whiteList.map((region) => region.trim()).join(', ')}</p>`;
+		const csvURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT9_527lS9_zLqNhFlRF31X8CDT9bpOlA32exvoNDMNzAP9QOiwO1ZQ7VhRN2K_eGrfQ2Tn38Or-QR8/pub?gid=0&single=true&output=csv";
+  		try {
+   			const response = await fetch(csvURL);
+    			const csvText = await response.text();
+    			const csvData = csvText.split("\n").map((row) => row.split(","));
 		}
-		const rarityArr = Object.entries(rarities);
-		for (let i = 0; i < rarityArr.length; i++) {
-			progress += `<p>${rarityArr[i][0]} junk threshold at ${rarityArr[i][1]}</p>`;
-		}
-		progress += `<p class="font-bold">Initiating JunkDaJunk...</p>`;
-		for (let i = 0; i < puppetsList.length; i++) {
-			let currentNationXPin = ""
-			let nation = puppetsList[i].toLowerCase().replaceAll(' ', '_');
-			if (abortController.signal.aborted || stopped) {
-				break;
+
+    			// Assuming the CSV structure: Destination, Card ID, Card season, Link, notes
+    			// Process CSV data to match card information
+		    for (const row of csvData) {
+		      const destination = row[0].trim();
+		      const cardID = row[1].trim();
+		      const cardSeason = row[2].trim();
+		      const link = row[3].trim();
+		      const note = row[4].trim();
+
+			downloadable = false;
+			stoppable = true;
+			stopped = false;
+			progress = '';
+			let puppetsList = puppets.split('\n');
+			const whiteList = regionalwhitelist ? regionalwhitelist.split('\n') : [];
+			if (whiteList.length > 0) {
+				progress += `<p>Whitelisting regions: ${whiteList.map((region) => region.trim()).join(', ')}</p>`;
 			}
+			const rarityArr = Object.entries(rarities);
+			for (let i = 0; i < rarityArr.length; i++) {
+				progress += `<p>${rarityArr[i][0]} junk threshold at ${rarityArr[i][1]}</p>`;
+			}
+			progress += `<p class="font-bold">Initiating JunkDaJunk...</p>`;
+			for (let i = 0; i < puppetsList.length; i++) {
+				let currentNationXPin = ""
+				let nation = puppetsList[i].toLowerCase().replaceAll(' ', '_');
+				if (abortController.signal.aborted || stopped) {
+					break;
+				}
 			try {
 				await sleep(700);
 				progress += `<p class="font-semibold">Processing ${nation} ${i + 1}/${puppetsList.length} puppets</p>`;
 				const xmlDocument = await parseXML(`https://www.nationstates.net/cgi-bin/api.cgi/?nationname=${nation}&q=cards+deck`, main);
 				const cards: Array<Card> = xmlDocument.CARDS.DECK.CARD;
 				if (cards && cards.length > Number(cardcount)) {
+					let ogGiftie = giftie
 					for (let i = 0; i < cards.length; i++) {
+						giftie = ogGiftie
 						const id = cards[i].CARDID;
 						const season = cards[i].SEASON;
 						if (abortController.signal.aborted || stopped) {
@@ -126,6 +144,13 @@
 						if (region && whiteList.includes(region)) {
 							junk = false;
 							reason = `, is in whitelisted ${region}.`
+						}
+						let tempID = cardID.indexOf(id)
+						let tempSeason = cardSeason[tempID]
+						if(tempID !== -1 && tempSeason == season){
+							giftie = destination[tempID];
+							junk = false;
+							reason = `, gift for ${giftie} becuse ${note}
 						}
 
 						if (junk) {
